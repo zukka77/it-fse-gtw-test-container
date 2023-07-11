@@ -1,11 +1,14 @@
 services:
-  oracle-xe:
-    image: wnameless/oracle-xe-11g-r2
+  postgres:
+    image: docker.io/postgres:15
     ports:
-      - '1521:1521'
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=terminology
+      - POSTGRES_PASSWORD=terminology
     volumes:
-      - ./oracle-xe/:/docker-entrypoint-initdb.d/:ro
-    restart: always
+      - ./postgres/:/docker-entrypoint-initdb.d/:ro
+    restart:  unless-stopped
   mongo:
     build:
       context: .
@@ -13,11 +16,11 @@ services:
     ports:
       - '27888:27017'
     volumes:
-      - ./mongo/:/docker-entrypoint-initdb.d/:rw
+      - ./mongo/:/docker-entrypoint-initdb.d/:ro
     restart: unless-stopped
   
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: docker.io/confluentinc/cp-zookeeper:latest
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -26,19 +29,22 @@ services:
     restart: unless-stopped
   
   kafka:
-    image: confluentinc/cp-kafka:6.2.1
+    image: docker.io/confluentinc/cp-kafka:6.2.1
     ports:
       - 29092:29092
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://host.docker.internal:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 
     restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_started
    
   ##MICROSERVIZI
   
@@ -52,9 +58,6 @@ services:
       PORT: 10000
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 10000:10000
@@ -67,7 +70,7 @@ services:
     depends_on:
       kafka:
         condition: service_started
-      oracle-xe:
+      postgres:
         condition: service_started
 
   it-fse-prov-be-notifier:
@@ -80,9 +83,6 @@ services:
       PORT: 8083
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 8083:8083
@@ -95,7 +95,7 @@ services:
     depends_on:
       kafka:
         condition: service_started
-      oracle-xe:
+      postgres:
         condition: service_started
 
   it-fse-srv-converter:
@@ -108,9 +108,6 @@ services:
       PORT: 8100
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 8100:8100
@@ -131,9 +128,6 @@ services:
       PORT: 9088
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 9088:9088
@@ -157,9 +151,6 @@ services:
       PORT: 9097
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 9097:9097
@@ -185,9 +176,6 @@ services:
       PORT: 10001
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 10001:10001
@@ -213,9 +201,6 @@ services:
       PORT: 9091
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 9091:9091
@@ -239,9 +224,6 @@ services:
       PORT: 18080
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 18080:18080
@@ -265,9 +247,6 @@ services:
       PORT: 8080
     volumes: 
       - mvn-cache:/root/.m2
-    network_mode: "bridge"
-    extra_hosts:       
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     ports:
       - 8080:8080
@@ -278,7 +257,7 @@ services:
       start_period: 20s
       timeout: 10s
     depends_on:
-      oracle-xe:
+      postgres:
         condition: service_started
 
 volumes:
